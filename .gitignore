@@ -1,0 +1,20 @@
+# macOS
+.DS_Store
+
+# Binary
+/dibs
+*.exe
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Go
+/vendor/
+
+# Test
+*.test
+coverage.out

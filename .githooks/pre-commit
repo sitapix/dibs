@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "pre-commit: running quick checks..."
+
+# Vet (fast, catches real issues)
+echo "  vetting..."
+go vet ./... || { echo "FAIL: go vet failed"; exit 1; }
+
+# Lint (if installed)
+if command -v golangci-lint &>/dev/null; then
+    echo "  linting..."
+    golangci-lint run ./... || { echo "FAIL: lint failed"; exit 1; }
+fi
+
+echo "pre-commit: all checks passed"

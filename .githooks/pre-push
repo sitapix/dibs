@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "pre-push: running full checks..."
+
+# Build
+echo "  building..."
+go build ./... || { echo "FAIL: build failed"; exit 1; }
+
+# Tests with race detector
+echo "  testing..."
+go test -race ./... -short -count=1 || { echo "FAIL: tests failed"; exit 1; }
+
+echo "pre-push: all checks passed"
