@@ -147,8 +147,31 @@ func Validate(cfg Config, validProviders map[string]bool) error {
 	if cfg.Parallel < 1 || cfg.Parallel > cfg.MaxParallel {
 		return fmt.Errorf("config: parallel must be between 1 and %d, got %d", cfg.MaxParallel, cfg.Parallel)
 	}
-	if cfg.Timeout < 0 {
-		return fmt.Errorf("config: timeout must be non-negative, got %d", cfg.Timeout)
+	// Timeout=0 passed to http.Client.Timeout means "no timeout"; reject it
+	// so users can't accidentally opt into hang-forever DNS queries.
+	if cfg.Timeout < 1 {
+		return fmt.Errorf("config: timeout must be at least 1 second, got %d", cfg.Timeout)
+	}
+	if cfg.Retries < 0 {
+		return fmt.Errorf("config: retries must be non-negative, got %d", cfg.Retries)
+	}
+	if cfg.Limit < 0 {
+		return fmt.Errorf("config: limit must be non-negative, got %d", cfg.Limit)
+	}
+	if cfg.MinLength < 0 {
+		return fmt.Errorf("config: min-length must be non-negative, got %d", cfg.MinLength)
+	}
+	if cfg.MaxLength < 0 {
+		return fmt.Errorf("config: max-length must be non-negative, got %d", cfg.MaxLength)
+	}
+	if cfg.MinLength > 0 && cfg.MaxLength > 0 && cfg.MinLength > cfg.MaxLength {
+		return fmt.Errorf("config: min-length (%d) cannot exceed max-length (%d)", cfg.MinLength, cfg.MaxLength)
+	}
+	switch cfg.Sort {
+	case "", "alpha", "length":
+		// valid
+	default:
+		return fmt.Errorf("config: sort must be \"alpha\" or \"length\", got %q", cfg.Sort)
 	}
 	if !validProviders[cfg.Provider] {
 		return fmt.Errorf("config: unknown provider %q", cfg.Provider)

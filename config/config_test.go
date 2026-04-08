@@ -10,7 +10,7 @@ import (
 
 // testProviders is the set of valid providers used across validation tests.
 var testProviders = map[string]bool{
-	"quad9": true, "mullvad": true, "cloudflare": true, "google": true,
+	"quad9": true, "mullvad": true, "nextdns": true, "adguard": true,
 }
 
 // ---------------------------------------------------------------------------
@@ -62,7 +62,7 @@ func TestParseFile_Valid(t *testing.T) {
 	path := writeTempConfig(t, `parallel=10
 timeout=3
 retries=2
-provider=google
+provider=nextdns
 `)
 	cfg, err := config.ParseFile(path)
 	if err != nil {
@@ -77,8 +77,8 @@ provider=google
 	if cfg.Retries != 2 {
 		t.Errorf("Retries: got %d, want 2", cfg.Retries)
 	}
-	if cfg.Provider != "google" {
-		t.Errorf("Provider: got %q, want \"google\"", cfg.Provider)
+	if cfg.Provider != "nextdns" {
+		t.Errorf("Provider: got %q, want \"nextdns\"", cfg.Provider)
 	}
 }
 
@@ -138,7 +138,7 @@ func TestMerge_FileOverridesBaseWhereNonZero(t *testing.T) {
 	file := config.Config{
 		Parallel: 50,
 		// Timeout left at zero — should not override base
-		Provider: "google",
+		Provider: "nextdns",
 	}
 
 	merged := config.Merge(base, file)
@@ -150,8 +150,8 @@ func TestMerge_FileOverridesBaseWhereNonZero(t *testing.T) {
 	if merged.Timeout != 5 {
 		t.Errorf("Timeout: got %d, want 5 (base preserved)", merged.Timeout)
 	}
-	if merged.Provider != "google" {
-		t.Errorf("Provider: got %q, want \"google\"", merged.Provider)
+	if merged.Provider != "nextdns" {
+		t.Errorf("Provider: got %q, want \"nextdns\"", merged.Provider)
 	}
 	// MaxParallel not set in file, base should be preserved
 	if merged.MaxParallel != 500 {
@@ -236,11 +236,13 @@ func TestValidate_NegativeTimeoutErrors(t *testing.T) {
 	}
 }
 
-func TestValidate_ZeroTimeoutIsValid(t *testing.T) {
+func TestValidate_ZeroTimeoutErrors(t *testing.T) {
+	// Breaking change from older behavior: timeout=0 used to be accepted but
+	// made http.Client hang forever. Now rejected at validation time.
 	cfg := config.Default()
 	cfg.Timeout = 0
-	if err := config.Validate(cfg, testProviders); err != nil {
-		t.Errorf("timeout=0 should be valid, got: %v", err)
+	if err := config.Validate(cfg, testProviders); err == nil {
+		t.Error("expected error for timeout=0 (hang-forever trap), got nil")
 	}
 }
 
@@ -276,18 +278,130 @@ func TestValidate_MullvadProviderValid(t *testing.T) {
 	}
 }
 
-func TestValidate_CloudflareProviderValid(t *testing.T) {
+func TestValidate_NextDNSProviderValid(t *testing.T) {
 	cfg := config.Default()
-	cfg.Provider = "cloudflare"
+	cfg.Provider = "nextdns"
 	if err := config.Validate(cfg, testProviders); err != nil {
-		t.Errorf("cloudflare should be valid provider, got: %v", err)
+		t.Errorf("nextdns should be valid provider, got: %v", err)
 	}
 }
 
-func TestValidate_GoogleProviderValid(t *testing.T) {
+func TestValidate_AdGuardProviderValid(t *testing.T) {
 	cfg := config.Default()
-	cfg.Provider = "google"
+	cfg.Provider = "adguard"
 	if err := config.Validate(cfg, testProviders); err != nil {
-		t.Errorf("google should be valid provider, got: %v", err)
+		t.Errorf("adguard should be valid provider, got: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Validate — numeric bounds added in the production-grade pass
+// ---------------------------------------------------------------------------
+
+func TestValidate_NegativeRetriesErrors(t *testing.T) {
+	cfg := config.Default()
+	cfg.Retries = -1
+	if err := config.Validate(cfg, testProviders); err == nil {
+		t.Error("expected error for retries=-1, got nil")
+	}
+}
+
+func TestValidate_ZeroRetriesIsValid(t *testing.T) {
+	cfg := config.Default()
+	cfg.Retries = 0
+	if err := config.Validate(cfg, testProviders); err != nil {
+		t.Errorf("retries=0 should be valid (means no retries), got: %v", err)
+	}
+}
+
+func TestValidate_NegativeLimitErrors(t *testing.T) {
+	cfg := config.Default()
+	cfg.Limit = -5
+	if err := config.Validate(cfg, testProviders); err == nil {
+		t.Error("expected error for limit=-5, got nil")
+	}
+}
+
+func TestValidate_NegativeMinLengthErrors(t *testing.T) {
+	cfg := config.Default()
+	cfg.MinLength = -1
+	if err := config.Validate(cfg, testProviders); err == nil {
+		t.Error("expected error for min-length=-1, got nil")
+	}
+}
+
+func TestValidate_NegativeMaxLengthErrors(t *testing.T) {
+	cfg := config.Default()
+	cfg.MaxLength = -1
+	if err := config.Validate(cfg, testProviders); err == nil {
+		t.Error("expected error for max-length=-1, got nil")
+	}
+}
+
+func TestValidate_MinLengthGreaterThanMaxLengthErrors(t *testing.T) {
+	cfg := config.Default()
+	cfg.MinLength = 5
+	cfg.MaxLength = 3
+	if err := config.Validate(cfg, testProviders); err == nil {
+		t.Error("expected error for min-length=5 > max-length=3, got nil")
+	}
+}
+
+func TestValidate_MinLengthEqualsMaxLengthIsValid(t *testing.T) {
+	cfg := config.Default()
+	cfg.MinLength = 3
+	cfg.MaxLength = 3
+	if err := config.Validate(cfg, testProviders); err != nil {
+		t.Errorf("min-length=max-length should be valid (exact length filter), got: %v", err)
+	}
+}
+
+func TestValidate_OnlyMinLengthIsValid(t *testing.T) {
+	cfg := config.Default()
+	cfg.MinLength = 4
+	// MaxLength left at 0 (no upper bound)
+	if err := config.Validate(cfg, testProviders); err != nil {
+		t.Errorf("min-length alone should be valid, got: %v", err)
+	}
+}
+
+func TestValidate_OnlyMaxLengthIsValid(t *testing.T) {
+	cfg := config.Default()
+	cfg.MaxLength = 4
+	// MinLength left at 0 (no lower bound)
+	if err := config.Validate(cfg, testProviders); err != nil {
+		t.Errorf("max-length alone should be valid, got: %v", err)
+	}
+}
+
+func TestValidate_SortEmptyIsValid(t *testing.T) {
+	cfg := config.Default()
+	cfg.Sort = ""
+	if err := config.Validate(cfg, testProviders); err != nil {
+		t.Errorf("empty sort should be valid, got: %v", err)
+	}
+}
+
+func TestValidate_SortAlphaIsValid(t *testing.T) {
+	cfg := config.Default()
+	cfg.Sort = "alpha"
+	if err := config.Validate(cfg, testProviders); err != nil {
+		t.Errorf("sort=alpha should be valid, got: %v", err)
+	}
+}
+
+func TestValidate_SortLengthIsValid(t *testing.T) {
+	cfg := config.Default()
+	cfg.Sort = "length"
+	if err := config.Validate(cfg, testProviders); err != nil {
+		t.Errorf("sort=length should be valid, got: %v", err)
+	}
+}
+
+func TestValidate_SortInvalidErrors(t *testing.T) {
+	cfg := config.Default()
+	cfg.Sort = "popularity"
+	if err := config.Validate(cfg, testProviders); err == nil {
+		t.Error("expected error for unrecognized sort value, got nil")
 	}
 }
