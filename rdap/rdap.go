@@ -24,19 +24,6 @@ const (
 	Error                     // network/server error
 )
 
-func (s Status) String() string {
-	switch s {
-	case Registered:
-		return "registered"
-	case NotFound:
-		return "not found"
-	case Unavailable:
-		return "unavailable"
-	default:
-		return "error"
-	}
-}
-
 // Result holds the outcome of an RDAP lookup.
 type Result struct {
 	Domain string
