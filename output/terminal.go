@@ -113,7 +113,7 @@ func (r *TerminalRenderer) Finish(partial bool) {
 	}
 
 	if partial {
-		fmt.Fprintf(r.w, "Interrupted — showing %d/%d results\n", r.checked, r.total)
+		fmt.Fprintf(r.w, "Interrupted: showing %d/%d results\n", r.checked, r.total)
 		return
 	}
 
