@@ -1,0 +1,15 @@
+version: "2"
+
+linters:
+  settings:
+    errcheck:
+      # Idiomatic Go patterns that never benefit from error handling:
+      # - Closing a handle we're done reading from
+      # - Writing progress/warnings to an io.Writer (if stderr is broken,
+      #   there's nowhere left to report it)
+      exclude-functions:
+        - (io.Closer).Close
+        - (*os.File).Close
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln

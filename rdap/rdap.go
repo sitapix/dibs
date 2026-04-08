@@ -101,10 +101,10 @@ func (c *Client) Lookup(ctx context.Context, domain, tld string) Result {
 	defer resp.Body.Close()
 	_, _ = io.Copy(io.Discard, resp.Body)
 
-	switch {
-	case resp.StatusCode == http.StatusOK:
+	switch resp.StatusCode {
+	case http.StatusOK:
 		return Result{Domain: domain, TLD: tld, Status: Registered}
-	case resp.StatusCode == http.StatusNotFound:
+	case http.StatusNotFound:
 		return Result{Domain: domain, TLD: tld, Status: NotFound}
 	default:
 		return Result{Domain: domain, TLD: tld, Status: Error,
