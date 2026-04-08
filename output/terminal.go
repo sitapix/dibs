@@ -128,7 +128,7 @@ func (r *TerminalRenderer) Finish(partial bool) {
 		vs := r.verifyStats
 		fmt.Fprintf(r.w, "Verified %d of %d via RDAP", vs.Verified, vs.Checked)
 		if vs.Unverified > 0 {
-			fmt.Fprintf(r.w, " (%d TLDs have no RDAP server)", vs.Unverified)
+			fmt.Fprintf(r.w, " (%d domains without RDAP coverage)", vs.Unverified)
 		}
 		fmt.Fprintln(r.w)
 	}
@@ -199,5 +199,5 @@ func (r *TerminalRenderer) progressBar() string {
 	bar := strings.Repeat(string(barFilled), filled) +
 		strings.Repeat(string(barEmpty), barWidth-filled)
 
-	return fmt.Sprintf("  %s %d/%d TLDs  %d%%", bar, r.checked, r.total, pct)
+	return fmt.Sprintf("  %s %d/%d domains  %d%%", bar, r.checked, r.total, pct)
 }

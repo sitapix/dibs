@@ -95,11 +95,12 @@ type DoHResolver struct {
 	client    *http.Client
 }
 
-// NewDoHResolver constructs a DoHResolver.
-// When rotate is true, successive calls cycle through providers in round-robin order.
-func NewDoHResolver(providers []Provider, rotate bool, timeout time.Duration) *DoHResolver {
+// NewDoHResolver constructs a DoHResolver. At least one provider is required
+// (passed as first); additional providers are variadic. When rotate is true,
+// successive calls cycle through providers in round-robin order.
+func NewDoHResolver(timeout time.Duration, rotate bool, first Provider, rest ...Provider) *DoHResolver {
 	return &DoHResolver{
-		providers: providers,
+		providers: append([]Provider{first}, rest...),
 		rotate:    rotate,
 		client: &http.Client{
 			Timeout: timeout,

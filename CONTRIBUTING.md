@@ -46,7 +46,7 @@ Feature requests are welcome! Please:
 git clone https://github.com/YOUR_USERNAME/dibs.git
 cd dibs
 
-# Set up pre-commit hooks
+# Set up pre-commit hooks (opt-in, see below)
 make setup
 
 # Build
@@ -57,6 +57,24 @@ make build
 ```
 
 Requires Go 1.26+.
+
+### Git hooks (opt-in)
+
+Hooks live in `.githooks/` and are only active after you run `make setup`, which points `core.hooksPath` at that directory. The hooks are advisory:
+
+- **pre-commit** runs `gofmt`, `go vet`, and (if installed) `golangci-lint`
+- **pre-push** runs `go build`, `go mod verify`, and `go test -race -short ./...`
+
+If you already use another hook manager (lefthook, pre-commit.com, husky, a global hooks directory), `make setup` will print a warning and show you how to restore your previous `core.hooksPath` before overriding it.
+
+Bypass the hooks for a WIP commit or an emergency fix:
+
+```bash
+git commit --no-verify
+git push --no-verify
+```
+
+Use sparingly — the pre-release gate (`make release-check`) re-runs everything the hooks check plus more, so anything the hooks would have caught will still block a tag.
 
 ## Coding Standards
 
@@ -107,10 +125,11 @@ Before tagging a release, run the full pre-flight gate:
 ```bash
 # Requires: go install golang.org/x/tools/cmd/deadcode@latest
 #           go install golang.org/x/vuln/cmd/govulncheck@latest
+#           golangci-lint (https://golangci-lint.run/usage/install/)
 make release-check
 ```
 
-`release-check` adds deadcode detection, govulncheck, `go mod` drift check, and a reproducibility build that verifies the release ldflags still wire `main.version` correctly. Don't push a tag until it passes.
+`release-check` is a strict superset of the pre-commit and pre-push hooks: `gofmt`, `go vet`, `golangci-lint`, full race test suite (not `-short`), deadcode detection, govulncheck, a `go mod tidy -diff` drift check (non-mutating), and a reproducibility build that verifies the release ldflags still wire `main.version` correctly. Requires network access. Don't push a tag until it passes.
 
 ## Project Structure
 

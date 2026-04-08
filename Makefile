@@ -16,8 +16,13 @@ lint:
 	golangci-lint run ./...
 
 setup:
-	git config core.hooksPath .githooks
-	@echo "Git hooks activated."
+	@prev=$$(git config --get core.hooksPath || true); \
+	  if [ -n "$$prev" ] && [ "$$prev" != ".githooks" ]; then \
+	    echo "warning: overriding existing core.hooksPath: $$prev"; \
+	    echo "         to restore: git config core.hooksPath $$prev"; \
+	  fi
+	@git config core.hooksPath .githooks
+	@echo "Git hooks activated (.githooks). Bypass per-commit with: git commit --no-verify"
 
 install:
 	go install -ldflags="-s -w -X main.version=$(VERSION)" .
@@ -31,11 +36,17 @@ coverage:
 
 # release-check: full pre-tag verification. Run before `git tag v*`.
 # Stricter than the pre-push hook: full race tests (not -short), deadcode,
-# govulncheck, go.mod tidy drift, and a reproducibility build that exercises
-# the exact ldflags CI uses so version wiring can't silently break.
+# govulncheck, gofmt, golangci-lint, go.mod tidy drift (non-destructive),
+# and a reproducibility build that exercises the exact ldflags CI uses
+# so version wiring can't silently break. Requires network access.
 release-check:
+	@echo "→ gofmt"
+	@out=$$(gofmt -l .); if [ -n "$$out" ]; then echo "unformatted files:"; echo "$$out"; exit 1; fi
 	@echo "→ go vet"
 	@go vet ./...
+	@echo "→ golangci-lint"
+	@command -v golangci-lint >/dev/null || { echo "install: https://golangci-lint.run/usage/install/"; exit 1; }
+	@golangci-lint run ./...
 	@echo "→ go test -race (full)"
 	@go test -race -count=1 ./...
 	@echo "→ deadcode"
@@ -47,10 +58,9 @@ release-check:
 	@echo "→ go mod verify"
 	@go mod verify
 	@echo "→ go mod tidy drift check"
-	@go mod tidy
-	@git diff --exit-code go.mod go.sum || { echo "go.mod or go.sum drifted during tidy — commit the result and re-run"; exit 1; }
+	@go mod tidy -diff || { echo "go.mod or go.sum drifted — run 'go mod tidy' and commit the result"; exit 1; }
 	@echo "→ reproducible release build"
-	@tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT; \
+	@tmp=$$(mktemp -d); trap 'rm -rf $$tmp' EXIT INT TERM; \
 	  go build -ldflags="-s -w -X main.version=release-check" -trimpath -o $$tmp/dibs .; \
 	  actual=$$($$tmp/dibs --version); \
 	  expected="dibs release-check"; \

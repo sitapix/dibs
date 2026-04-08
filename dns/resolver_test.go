@@ -40,12 +40,15 @@ func wireHandler(rcode int) http.Handler {
 	})
 }
 
+func newTestResolver(srv *httptest.Server, timeout time.Duration) *dns.DoHResolver {
+	return dns.NewDoHResolver(timeout, false, dns.Provider{Name: "test", URL: srv.URL})
+}
+
 func TestDoH_NXDOMAIN(t *testing.T) {
 	srv := httptest.NewServer(wireHandler(3))
 	defer srv.Close()
 
-	provider := dns.Provider{Name: "test", URL: srv.URL}
-	resolver := dns.NewDoHResolver([]dns.Provider{provider}, false, 5*time.Second)
+	resolver := newTestResolver(srv, 5*time.Second)
 
 	result := resolver.Lookup(context.Background(), "nonexistent.example")
 	if result.Status != dns.StatusAvailable {
@@ -60,8 +63,7 @@ func TestDoH_NOERROR(t *testing.T) {
 	srv := httptest.NewServer(wireHandler(0))
 	defer srv.Close()
 
-	provider := dns.Provider{Name: "test", URL: srv.URL}
-	resolver := dns.NewDoHResolver([]dns.Provider{provider}, false, 5*time.Second)
+	resolver := newTestResolver(srv, 5*time.Second)
 
 	result := resolver.Lookup(context.Background(), "google.com")
 	if result.Status != dns.StatusTaken {
@@ -73,8 +75,7 @@ func TestDoH_SERVFAIL(t *testing.T) {
 	srv := httptest.NewServer(wireHandler(2))
 	defer srv.Close()
 
-	provider := dns.Provider{Name: "test", URL: srv.URL}
-	resolver := dns.NewDoHResolver([]dns.Provider{provider}, false, 5*time.Second)
+	resolver := newTestResolver(srv, 5*time.Second)
 
 	result := resolver.Lookup(context.Background(), "broken.example")
 	if result.Status != dns.StatusError {
@@ -92,8 +93,7 @@ func TestDoH_Timeout(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	provider := dns.Provider{Name: "test", URL: srv.URL}
-	resolver := dns.NewDoHResolver([]dns.Provider{provider}, false, 100*time.Millisecond)
+	resolver := newTestResolver(srv, 100*time.Millisecond)
 
 	start := time.Now()
 	result := resolver.Lookup(context.Background(), "timeout.example")
@@ -124,11 +124,9 @@ func TestDoH_Rotation(t *testing.T) {
 	}))
 	defer srv2.Close()
 
-	providers := []dns.Provider{
-		{Name: "p1", URL: srv1.URL},
-		{Name: "p2", URL: srv2.URL},
-	}
-	resolver := dns.NewDoHResolver(providers, true, 5*time.Second)
+	p1 := dns.Provider{Name: "p1", URL: srv1.URL}
+	p2 := dns.Provider{Name: "p2", URL: srv2.URL}
+	resolver := dns.NewDoHResolver(5*time.Second, true, p1, p2)
 
 	for i := 0; i < 4; i++ {
 		resolver.Lookup(context.Background(), fmt.Sprintf("test%d.example", i))
@@ -156,8 +154,7 @@ func TestDoH_NoUserAgent(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	provider := dns.Provider{Name: "test", URL: srv.URL}
-	resolver := dns.NewDoHResolver([]dns.Provider{provider}, false, 5*time.Second)
+	resolver := newTestResolver(srv, 5*time.Second)
 	resolver.Lookup(context.Background(), "privacy.example")
 
 	if !seen.Load() {
@@ -175,8 +172,7 @@ func TestDoH_TruncatedResponse(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	provider := dns.Provider{Name: "test", URL: srv.URL}
-	resolver := dns.NewDoHResolver([]dns.Provider{provider}, false, 5*time.Second)
+	resolver := newTestResolver(srv, 5*time.Second)
 
 	result := resolver.Lookup(context.Background(), "truncated.example")
 	if result.Status != dns.StatusError {

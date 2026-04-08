@@ -15,11 +15,11 @@ $ dibs --verify columns
   ✓  columns.space                   available
   ✓  columns.tech                    available
   ✗  columns.org                     taken
-  ━━━━━━━━━━━━━━━━ 25/25 TLDs  100%
+  ━━━━━━━━━━━━━━━━ 25/25 domains  100%
 
 Verifying 8 available domains via RDAP...
 Found 8 available domains out of 25 checked (32%)
-Verified 6 of 8 via RDAP (2 TLDs have no RDAP server)
+Verified 6 of 8 via RDAP (2 domains without RDAP coverage)
 ```
 
 ## Features

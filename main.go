@@ -383,9 +383,10 @@ func buildResolver(cfg config.Config) dns.Resolver {
 		return dns.NewSystemResolver(timeout)
 	case cfg.DohURL != "":
 		custom := dns.Provider{Name: "custom", URL: cfg.DohURL}
-		return dns.NewDoHResolver([]dns.Provider{custom}, false, timeout)
+		return dns.NewDoHResolver(timeout, false, custom)
 	default:
-		return dns.NewDoHResolver(resolveProviders(cfg), cfg.Rotate, timeout)
+		first, rest := resolveProviders(cfg)
+		return dns.NewDoHResolver(timeout, cfg.Rotate, first, rest...)
 	}
 }
 
@@ -555,16 +556,17 @@ func resolveTLDList(cfg config.Config, stderr io.Writer) []string {
 	return list
 }
 
-// resolveProviders returns the DNS provider list based on config.
-func resolveProviders(cfg config.Config) []dns.Provider {
+// resolveProviders returns the DNS provider list as (required first, variadic
+// rest) to match dns.NewDoHResolver's non-empty invariant.
+func resolveProviders(cfg config.Config) (dns.Provider, []dns.Provider) {
 	if cfg.Rotate {
-		return dns.AllProviders()
+		all := dns.AllProviders()
+		return all[0], all[1:]
 	}
-	p, ok := dns.GetProvider(cfg.Provider)
-	if !ok {
-		return dns.AllProviders()[:1]
+	if p, ok := dns.GetProvider(cfg.Provider); ok {
+		return p, nil
 	}
-	return []dns.Provider{p}
+	return dns.AllProviders()[0], nil
 }
 
 // xdgPath returns a path under an XDG base directory, falling back to

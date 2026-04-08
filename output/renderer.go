@@ -8,7 +8,7 @@ import "github.com/sitapix/dibs/dns"
 // any Render calls, and ApplyVerification and Finish are called
 // sequentially after all Render calls complete.
 type Renderer interface {
-	// Start is called once before any results, with the search query and total TLD count.
+	// Start is called once before any results, with the search query and total domain count.
 	Start(query string, total int)
 	// Render is called once per lookup result. Must be safe for concurrent use.
 	Render(result dns.Result)
