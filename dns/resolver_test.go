@@ -1,9 +1,9 @@
 package dns_test
 
 import (
+	"context"
 	"fmt"
 	"io"
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -19,7 +19,7 @@ func wireResponse(rcode int) []byte {
 		0x00, 0x00, // ID
 		0x81,                    // QR=1, RD=1
 		0x80 | byte(rcode&0x0F), // RA=1, RCODE
-		0x00, 0x00, // QDCOUNT
+		0x00, 0x00,              // QDCOUNT
 		0x00, 0x00, // ANCOUNT
 		0x00, 0x00, // NSCOUNT
 		0x00, 0x00, // ARCOUNT
@@ -141,6 +141,33 @@ func TestDoH_Rotation(t *testing.T) {
 	}
 }
 
+// TestDoH_NoUserAgent verifies that DoH requests do not carry a User-Agent
+// header on the wire. Go's net/http auto-adds "User-Agent: Go-http-client/1.1"
+// when the header isn't explicitly set, which would leak the Go runtime to
+// every DoH resolver. Privacy regression guard; matches Firefox bug 1543201.
+func TestDoH_NoUserAgent(t *testing.T) {
+	var gotUserAgent []string
+	var seen atomic.Bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotUserAgent = r.Header["User-Agent"]
+		seen.Store(true)
+		w.Header().Set("Content-Type", "application/dns-message")
+		_, _ = w.Write(wireResponse(3))
+	}))
+	defer srv.Close()
+
+	provider := dns.Provider{Name: "test", URL: srv.URL}
+	resolver := dns.NewDoHResolver([]dns.Provider{provider}, false, 5*time.Second)
+	resolver.Lookup(context.Background(), "privacy.example")
+
+	if !seen.Load() {
+		t.Fatal("server never saw a request")
+	}
+	if len(gotUserAgent) != 0 {
+		t.Errorf("DoH request leaked User-Agent header: %v; want none", gotUserAgent)
+	}
+}
+
 func TestDoH_TruncatedResponse(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/dns-message")
@@ -203,7 +230,7 @@ func TestProviderNames(t *testing.T) {
 	if len(names) != 4 {
 		t.Fatalf("expected 4 providers, got %d", len(names))
 	}
-	expected := map[string]bool{"quad9": true, "mullvad": true, "cloudflare": true, "google": true}
+	expected := map[string]bool{"quad9": true, "mullvad": true, "nextdns": true, "adguard": true}
 	for _, name := range names {
 		if !expected[name] {
 			t.Errorf("unexpected provider: %s", name)

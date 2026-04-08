@@ -8,9 +8,10 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/sitapix/dibs/tlds"
 )
 
 // DomainStatus represents the availability status of a domain.
@@ -50,10 +51,10 @@ type Provider struct {
 
 // providers is the set of built-in DoH providers.
 var providers = map[string]Provider{
-	"quad9":      {Name: "quad9", URL: "https://dns.quad9.net/dns-query"},
-	"mullvad":    {Name: "mullvad", URL: "https://dns.mullvad.net/dns-query"},
-	"cloudflare": {Name: "cloudflare", URL: "https://cloudflare-dns.com/dns-query"},
-	"google":     {Name: "google", URL: "https://dns.google/dns-query"},
+	"quad9":   {Name: "quad9", URL: "https://dns.quad9.net/dns-query"},
+	"mullvad": {Name: "mullvad", URL: "https://dns.mullvad.net/dns-query"},
+	"nextdns": {Name: "nextdns", URL: "https://dns.nextdns.io"},
+	"adguard": {Name: "adguard", URL: "https://unfiltered.adguard-dns.com/dns-query"},
 }
 
 // GetProvider returns a provider by name and whether it exists.
@@ -76,8 +77,8 @@ func AllProviders() []Provider {
 	return []Provider{
 		providers["quad9"],
 		providers["mullvad"],
-		providers["cloudflare"],
-		providers["google"],
+		providers["nextdns"],
+		providers["adguard"],
 	}
 }
 
@@ -120,6 +121,12 @@ func (r *DoHResolver) Lookup(ctx context.Context, domain string) Result {
 	}
 	req.Header.Set("Content-Type", "application/dns-message")
 	req.Header.Set("Accept", "application/dns-message")
+	// Suppress Go's default "User-Agent: Go-http-client/1.1" for privacy.
+	// DoH resolvers don't need to know what client is querying them (see
+	// Firefox bug 1543201 for the reference precedent). Setting the header
+	// to an empty string makes net/http omit it from the wire entirely
+	// rather than sending "User-Agent: ".
+	req.Header.Set("User-Agent", "")
 
 	resp, err := r.client.Do(req)
 	if err != nil {
@@ -206,10 +213,10 @@ func errorResult(domain string, err error) Result {
 	return Result{Domain: domain, TLD: extractTLD(domain), Status: StatusError, Error: err.Error()}
 }
 
-// extractTLD returns the last label of a domain name.
+// extractTLD returns the public suffix of a domain (e.g. "co.uk" for
+// "foo.co.uk") for use in Result.TLD. See tlds.Suffix for why the icann
+// return is discarded here.
 func extractTLD(domain string) string {
-	if i := strings.LastIndex(domain, "."); i >= 0 {
-		return domain[i+1:]
-	}
-	return domain
+	suffix, _ := tlds.Suffix(domain)
+	return suffix
 }
