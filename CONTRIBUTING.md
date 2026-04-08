@@ -62,9 +62,9 @@ Requires Go 1.26+.
 
 - Follow standard Go conventions (`gofmt`, `go vet`)
 - Keep functions focused and small
-- Handle errors explicitly — don't ignore them
+- Handle errors explicitly; don't ignore them
 - Add tests for new functionality
-- No external dependencies — this project uses only the Go standard library
+- Minimize external dependencies. dibs uses only the Go standard library plus `golang.org/x/net` (for the Public Suffix List); justify any new dependency in the PR description
 
 ### Commit Messages
 

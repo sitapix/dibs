@@ -5,7 +5,7 @@
 
 **Check domain availability across every TLD, right from your terminal.**
 
-dibs checks whether a domain name is available across all 1400+ ICANN top-level domains. It uses DNS over HTTPS to keep your lookups off plaintext DNS, and you can optionally turn on RDAP verification to double-check results against the actual registry data. No registrar search bars, no WHOIS scraping. Just a single Go binary with zero dependencies.
+dibs checks if a domain is available across all 1400+ ICANN TLDs, or against a single domain like `vi.be` or `foo.co.uk`. It queries DNS over HTTPS instead of scraping WHOIS, and `--verify` cross-checks results against registry data via RDAP.
 
 ```
 $ dibs --verify columns
@@ -24,7 +24,9 @@ Verified 6 of 8 via RDAP (2 TLDs have no RDAP server)
 
 ## Features
 
+- **One domain or many.** `dibs mybrand` sweeps the top 25 TLDs; `dibs vi.be` or `dibs foo.co.uk` checks just that domain. Multi-label TLDs like `.co.uk` parse correctly via the Public Suffix List.
 - **DNS over HTTPS by default.** Queries go over HTTPS using [RFC 8484](https://datatracker.ietf.org/doc/html/rfc8484) wire format. You can fall back to system DNS with `--no-doh` if you prefer.
+- **Privacy on the wire.** DoH queries are padded to 128-byte blocks ([RFC 7830](https://datatracker.ietf.org/doc/rfc7830)/[RFC 8467](https://datatracker.ietf.org/doc/rfc8467)) so passive observers can't fingerprint name length by ciphertext size, and the `User-Agent` header is suppressed so resolvers don't see which runtime is asking.
 - **RDAP verification.** Use `--verify` to check results against the actual registry data. Catches domains that are registered but have no DNS set up.
 - **Fast.** Runs 100 parallel lookups by default, and you can crank it up to 500.
 - **Smart defaults.** Checks the top 25 popular TLDs out of the box (com, org, net, io, dev, app, ai, etc.)
@@ -33,7 +35,7 @@ Verified 6 of 8 via RDAP (2 TLDs have no RDAP server)
 - **Batch processing.** Throw a list of domain names in a file and check them all at once.
 - **Filtering.** Filter by TLD length, sort alphabetically or by length, limit how many you check.
 - **Configurable.** Drop a config file at `~/.config/dibs/config` and your defaults are set.
-- **Zero dependencies.** Pure Go standard library, single binary, nothing else to install.
+- **Single binary.** Just the Go standard library plus `golang.org/x/net` for correct multi-label TLD parsing. No third-party runtime deps.
 
 ## Installation
 
@@ -95,7 +97,14 @@ dibs mybrand
 # check ALL 1400+ TLDs
 dibs --all mybrand
 
-# verify available domains against registry data
+# check one specific domain (single-domain mode: any argument with a dot)
+dibs vi.be
+dibs foo.co.uk
+
+# verify a specific domain against registry data
+dibs vi.be --verify
+
+# verify available domains from a sweep
 dibs --verify mybrand
 
 # both
@@ -107,6 +116,13 @@ dibs --quiet mybrand
 # interactive mode (prompts for domain name)
 dibs
 ```
+
+Any argument with a dot triggers single-domain mode, which bypasses the TLD
+sweep. The [Public Suffix List](https://publicsuffix.org/) handles multi-label
+TLDs like `.co.uk`, `.com.br`, and `.ac.uk`. dibs rejects subdomains
+(`mail.google.com` → use `google.com`), fake TLDs, and PSL private suffixes
+like `.github.io`. Single-domain mode conflicts with `--all`, `--tlds`,
+`--file`, `--limit`, `--sort`, and `--min/max-length`.
 
 ### Output formats
 
@@ -179,14 +195,14 @@ dibs --refresh --all mybrand
 # use Mullvad DoH instead of Quad9 (default)
 dibs --provider mullvad mybrand
 
-# use Cloudflare or Google
-dibs --provider cloudflare mybrand
-dibs --provider google mybrand
+# use another built-in non-registrar resolver
+dibs --provider nextdns mybrand
+dibs --provider adguard mybrand
 
 # rotate between all providers
 dibs --rotate mybrand
 
-# use your own DoH server
+# use your own DoH server (for example Cloudflare or Google)
 dibs --doh-url https://dns.example.com/dns-query mybrand
 
 # use system DNS instead of DoH (faster, plaintext)
@@ -203,6 +219,10 @@ dibs --no-doh mybrand
 4. NXDOMAIN means available, NOERROR means taken
 
 DNS is fast but it's really just a first pass. A domain can be registered without having any DNS set up, so it would look available when it's actually not.
+
+### Single-domain mode
+
+When the argument contains a dot (e.g. `vi.be`, `foo.co.uk`), dibs skips the TLD sweep. The [Public Suffix List](https://publicsuffix.org/) (baked into the binary via `golang.org/x/net/publicsuffix`) splits the input correctly, so multi-label TLDs like `.co.uk` and `.com.br` parse as one TLD instead of splitting on the last dot. dibs rejects non-registrable inputs up front: subdomains (`mail.google.com` → use `google.com`), fake TLDs like `.tld`, and PSL private suffixes like `.github.io`. The DNS and RDAP paths are identical to sweep mode.
 
 ### RDAP verification (`--verify`)
 
@@ -224,8 +244,10 @@ Yes. Sometimes a domain looks available in both DNS and RDAP but you still can't
 |----------|---------|-------|
 | **Quad9** | Yes | Non-profit. [quad9.net](https://quad9.net) |
 | **Mullvad** | | [mullvad.net](https://mullvad.net/en/help/dns-over-https-and-dns-over-tls) |
-| **Cloudflare** | | [1.1.1.1](https://developers.cloudflare.com/1.1.1.1/) |
-| **Google** | | [dns.google](https://developers.google.com/speed/public-dns) |
+| **NextDNS** | | [nextdns.io](https://nextdns.io) |
+| **AdGuard** | | Unfiltered endpoint. [adguard-dns.io](https://adguard-dns.io) |
+
+Built-in providers are limited to the non-registrar set above. Use `--doh-url` if you want a different resolver.
 
 Use `--rotate` to spread queries across all four providers, or `--no-doh` to skip DoH entirely and use system DNS (faster, but plaintext).
 
@@ -243,11 +265,11 @@ timeout=5
 # retry count on error (default: 1)
 retries=1
 
-# DoH provider: quad9, mullvad, cloudflare, google (default: quad9)
+# DoH provider: quad9, mullvad, nextdns, adguard (default: quad9)
 provider=quad9
 ```
 
-Only the keys shown above are supported — unknown keys will produce an error.
+Only the keys shown above are supported. Unknown keys produce an error.
 CLI flags override config file values.
 
 ## Contributing
