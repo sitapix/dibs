@@ -3,6 +3,16 @@ set -euo pipefail
 
 echo "pre-commit: running quick checks..."
 
+# Format (fast, catches the thing that wastes CI lint cycles)
+echo "  formatting..."
+unformatted=$(gofmt -l .)
+if [[ -n "$unformatted" ]]; then
+    echo "FAIL: gofmt violations:" >&2
+    echo "$unformatted" >&2
+    echo "Fix with: gofmt -w ." >&2
+    exit 1
+fi
+
 # Vet (fast, catches real issues)
 echo "  vetting..."
 go vet ./... || { echo "FAIL: go vet failed"; exit 1; }

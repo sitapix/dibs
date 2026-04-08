@@ -47,7 +47,7 @@ func TestValidateDomain(t *testing.T) {
 		{strings.Repeat("a", dns.MaxLabelLength+1), false}, // one over the limit
 		{"my brand", false},
 		{"my.brand", false},
-		{"café", false},  // non-ASCII rejected; use punycode
+		{"café", false}, // non-ASCII rejected; use punycode
 		{"例え", false},   // CJK rejected
 	}
 	for _, tt := range tests {

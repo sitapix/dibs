@@ -102,6 +102,16 @@ make lint
 make build
 ```
 
+Before tagging a release, run the full pre-flight gate:
+
+```bash
+# Requires: go install golang.org/x/tools/cmd/deadcode@latest
+#           go install golang.org/x/vuln/cmd/govulncheck@latest
+make release-check
+```
+
+`release-check` adds deadcode detection, govulncheck, `go mod` drift check, and a reproducibility build that verifies the release ldflags still wire `main.version` correctly. Don't push a tag until it passes.
+
 ## Project Structure
 
 ```

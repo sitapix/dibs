@@ -11,13 +11,13 @@ import (
 )
 
 const (
-	colorReset  = "\x1b[0m"
-	colorGreen  = "\x1b[32m"
-	colorDim    = "\x1b[2m"
-	clearLine   = "\r\x1b[2K"
-	barWidth    = 16
-	barFilled   = '━'
-	barEmpty    = '─'
+	colorReset = "\x1b[0m"
+	colorGreen = "\x1b[32m"
+	colorDim   = "\x1b[2m"
+	clearLine  = "\r\x1b[2K"
+	barWidth   = 16
+	barFilled  = '━'
+	barEmpty   = '─'
 )
 
 // VerifyStats holds RDAP verification statistics.

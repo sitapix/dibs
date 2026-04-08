@@ -7,6 +7,10 @@ echo "pre-push: running full checks..."
 echo "  building..."
 go build ./... || { echo "FAIL: build failed"; exit 1; }
 
+# Module integrity — catches go.sum corruption after module cache tampering
+echo "  verifying modules..."
+go mod verify || { echo "FAIL: go mod verify failed"; exit 1; }
+
 # Tests with race detector
 echo "  testing..."
 go test -race ./... -short -count=1 || { echo "FAIL: tests failed"; exit 1; }
