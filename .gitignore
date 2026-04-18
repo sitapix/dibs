@@ -18,3 +18,6 @@
 # Test
 *.test
 coverage.out
+
+# Local release-notes drafts (fed to `gh release create --notes-file`)
+/release-notes.md

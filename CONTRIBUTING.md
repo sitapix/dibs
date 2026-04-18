@@ -131,6 +131,18 @@ make release-check
 
 `release-check` is a strict superset of the pre-commit and pre-push hooks: `gofmt`, `go vet`, `golangci-lint`, full race test suite (not `-short`), deadcode detection, govulncheck, a `go mod tidy -diff` drift check (non-mutating), and a reproducibility build that verifies the release ldflags still wire `main.version` correctly. Requires network access. Don't push a tag until it passes.
 
+## Regenerating the demo GIF
+
+The README demo (`demo/demo.gif`) is scripted with [vhs](https://github.com/charmbracelet/vhs). To update it:
+
+```bash
+brew install vhs      # one-time
+make build            # produce ./dibs
+vhs demo/demo.tape    # writes demo/demo.gif
+```
+
+Edit `demo/demo.tape` to change what's shown, then re-render and commit both the tape and the resulting GIF.
+
 ## Project Structure
 
 ```
@@ -143,6 +155,7 @@ dibs/
 ├── output/            # Terminal, JSON, CSV renderers
 ├── rdap/              # RDAP verification client
 ├── tlds/              # TLD list parsing, caching, filtering
+├── demo/              # vhs tape and rendered GIF for the README
 ├── Formula/           # Homebrew formula
 ├── .github/workflows/ # CI and release automation
 ├── install.sh         # Binary installer script
