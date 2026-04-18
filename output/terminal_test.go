@@ -111,6 +111,47 @@ func TestTerminal_ProgressBarFormat(t *testing.T) {
 	}
 }
 
+// TestTerminalRenderer_BeginVerificationClearsProgressBarOnTTY pins the
+// ordering fix: when writing to a TTY, the clearLine escape must appear
+// before the "Verifying..." banner so they don't collide on the same line
+// as the in-place progress bar. On non-TTY output the escape is suppressed.
+func TestTerminalRenderer_BeginVerificationClearsProgressBarOnTTY(t *testing.T) {
+	t.Run("tty emits clearLine before banner", func(t *testing.T) {
+		var buf bytes.Buffer
+		// Bypass NewTerminalRenderer's auto-detect (a bytes.Buffer is never a
+		// TTY) by constructing the struct directly with isTTY=true.
+		r := &TerminalRenderer{w: &buf, isTTY: true}
+		r.BeginVerification(7)
+
+		out := buf.String()
+		clearIdx := strings.Index(out, clearLine)
+		bannerIdx := strings.Index(out, "Verifying 7 available domains via RDAP...")
+		if clearIdx < 0 {
+			t.Fatalf("expected clearLine escape in output, got: %q", out)
+		}
+		if bannerIdx < 0 {
+			t.Fatalf("expected banner in output, got: %q", out)
+		}
+		if clearIdx >= bannerIdx {
+			t.Errorf("clearLine must precede banner: clearIdx=%d bannerIdx=%d, got: %q", clearIdx, bannerIdx, out)
+		}
+	})
+
+	t.Run("non-tty skips clearLine", func(t *testing.T) {
+		var buf bytes.Buffer
+		r := &TerminalRenderer{w: &buf, isTTY: false}
+		r.BeginVerification(3)
+
+		out := buf.String()
+		if strings.Contains(out, clearLine) {
+			t.Errorf("non-TTY output should not contain clearLine escape, got: %q", out)
+		}
+		if !strings.Contains(out, "Verifying 3 available domains via RDAP...") {
+			t.Errorf("expected banner in output, got: %q", out)
+		}
+	})
+}
+
 func TestTerminalRenderer_ApplyVerification(t *testing.T) {
 	var buf bytes.Buffer
 	r := NewTerminalRenderer(&buf, false, true)

@@ -12,7 +12,9 @@ import (
 
 const (
 	colorReset = "\x1b[0m"
-	colorGreen = "\x1b[32m"
+	// Bright green (ANSI 92) rather than basic green (32): looks vivid across
+	// muted themes (TokyoNight, Solarized) where 32 renders as a dull teal.
+	colorGreen = "\x1b[92m"
 	colorDim   = "\x1b[2m"
 	clearLine  = "\r\x1b[2K"
 	barWidth   = 16
@@ -132,6 +134,17 @@ func (r *TerminalRenderer) Finish(partial bool) {
 		}
 		fmt.Fprintln(r.w)
 	}
+}
+
+// BeginVerification clears the in-place progress bar before printing the
+// banner so the two don't collide on the same line.
+func (r *TerminalRenderer) BeginVerification(count int) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.isTTY {
+		fmt.Fprint(r.w, clearLine)
+	}
+	fmt.Fprintf(r.w, "Verifying %d available domains via RDAP...\n", count)
 }
 
 // ApplyVerification prints RDAP corrections and stores stats for Finish.
