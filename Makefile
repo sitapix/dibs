@@ -1,4 +1,4 @@
-.PHONY: build test clean lint setup install fmt coverage release-check
+.PHONY: build test clean lint docs-lint setup install fmt coverage release-check
 
 VERSION ?= dev
 
@@ -14,6 +14,10 @@ clean:
 lint:
 	go vet ./...
 	golangci-lint run ./...
+
+docs-lint:
+	@command -v markdownlint-cli2 >/dev/null || { echo "install: brew install markdownlint-cli2"; exit 1; }
+	markdownlint-cli2 "**/*.md" "!.github/**" "!release-notes.md" "!vendor/**"
 
 setup:
 	@prev=$$(git config --get core.hooksPath || true); \
@@ -47,6 +51,9 @@ release-check:
 	@echo "→ golangci-lint"
 	@command -v golangci-lint >/dev/null || { echo "install: https://golangci-lint.run/usage/install/"; exit 1; }
 	@golangci-lint run ./...
+	@echo "→ markdownlint"
+	@command -v markdownlint-cli2 >/dev/null || { echo "install: brew install markdownlint-cli2"; exit 1; }
+	@markdownlint-cli2 "**/*.md" "!.github/**" "!release-notes.md" "!vendor/**"
 	@echo "→ go test -race (full)"
 	@go test -race -count=1 ./...
 	@echo "→ deadcode"

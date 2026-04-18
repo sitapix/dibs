@@ -41,5 +41,5 @@ an individual is officially representing the project in public spaces.
 
 ## Attribution
 
-This Code of Conduct is adapted from the [Contributor Covenant](https://www.contributor-covenant.org/),
-version 2.0.
+This Code of Conduct is adapted from the
+[Contributor Covenant](https://www.contributor-covenant.org/), version 2.0.
