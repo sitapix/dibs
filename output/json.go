@@ -85,6 +85,10 @@ func (r *JSONRenderer) Render(result dns.Result) {
 	}
 }
 
+// BeginVerification: JSON is buffered; any "verifying..." banner would only
+// appear in the error stream and is skipped for machine-parseable output.
+func (r *JSONRenderer) BeginVerification(_ int) {}
+
 // ApplyVerification moves corrected domains from Available to Taken and stores stats.
 func (r *JSONRenderer) ApplyVerification(corrections []dns.Result, stats VerifyStats) {
 	r.mu.Lock()

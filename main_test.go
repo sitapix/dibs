@@ -100,6 +100,49 @@ func TestJSONAndCSVMutuallyExclusive(t *testing.T) {
 	}
 }
 
+// TestRejectsExtraPositionalArgs pins the fix for silently ignoring trailing
+// args. `dibs verify lumen` used to check "verify" and drop "lumen" on the
+// floor; now it errors out and, because "verify" is a known flag, suggests
+// the --verify spelling.
+func TestRejectsExtraPositionalArgs(t *testing.T) {
+	tests := []struct {
+		name      string
+		args      []string
+		wantInErr []string
+	}{
+		{
+			name:      "flag-name typo suggests --flag",
+			args:      []string{"verify", "lumen"},
+			wantInErr: []string{"did you mean", `--verify "lumen"`},
+		},
+		{
+			name:      "plain extra name lists both inputs",
+			args:      []string{"foo", "bar"},
+			wantInErr: []string{"at most one name", `"foo" "bar"`},
+		},
+		{
+			name:      "arg with whitespace is quoted so suggestion round-trips",
+			args:      []string{"verify", "foo bar"},
+			wantInErr: []string{"did you mean", `--verify "foo bar"`},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			isolateConfig(t)
+			var stderr strings.Builder
+			code := run(tt.args, io.Discard, &stderr, strings.NewReader(""))
+			if code != 1 {
+				t.Fatalf("exit code = %d, want 1", code)
+			}
+			for _, needle := range tt.wantInErr {
+				if !strings.Contains(stderr.String(), needle) {
+					t.Errorf("stderr missing %q; got:\n%s", needle, stderr.String())
+				}
+			}
+		})
+	}
+}
+
 func TestBuildDomainList(t *testing.T) {
 	tlds := []string{"com", "org", "net"}
 	domains := buildDomainList("mybrand", tlds)

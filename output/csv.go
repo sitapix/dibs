@@ -35,6 +35,10 @@ func (r *CSVRenderer) Render(result dns.Result) {
 	r.results = append(r.results, result)
 }
 
+// BeginVerification: CSV is buffered; any "verifying..." banner would only
+// appear in the error stream and is skipped for machine-parseable output.
+func (r *CSVRenderer) BeginVerification(_ int) {}
+
 // ApplyVerification corrects buffered results from available to taken.
 func (r *CSVRenderer) ApplyVerification(corrections []dns.Result, _ VerifyStats) {
 	r.mu.Lock()

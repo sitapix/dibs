@@ -255,7 +255,7 @@ func TestValidate_InvalidProviderErrors(t *testing.T) {
 }
 
 func TestParseFile_UnknownKeyErrors(t *testing.T) {
-	path := writeTempConfig(t, "paralell=50\n")
+	path := writeTempConfig(t, "bogus=50\n")
 	_, err := config.ParseFile(path)
 	if err == nil {
 		t.Error("expected error for unknown key, got nil")

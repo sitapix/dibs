@@ -171,6 +171,7 @@ func run(args []string, stdout, stderr io.Writer, stdin io.Reader) int {
 		}
 
 		if len(available) > 0 {
+			renderer.BeginVerification(len(available))
 			corrections, stats := runRDAPVerify(ctx, available, cfg, stderr)
 			renderer.ApplyVerification(corrections, stats)
 		}
@@ -331,6 +332,9 @@ func collectDomains(cfg config.Config, fs *flag.FlagSet, stdin io.Reader, stderr
 	} else {
 		var name string
 		if fs.NArg() > 0 {
+			if fs.NArg() > 1 {
+				return nil, nil, tooManyArgsError(fs)
+			}
 			name = strings.TrimSpace(fs.Arg(0))
 		} else {
 			fmt.Fprint(stderr, "Enter domain name to check: ")
@@ -430,6 +434,29 @@ func rejectSingleDomainConflicts(fs *flag.FlagSet) error {
 		return fmt.Errorf("%s cannot be combined with a full domain argument", strings.Join(conflicts, ", "))
 	}
 	return nil
+}
+
+// tooManyArgsError reports extra positional arguments with a targeted hint
+// when the first arg matches a known flag name (e.g. `dibs verify foo` →
+// suggest `dibs --verify "foo"`). Values are quoted via %q so args with
+// spaces round-trip cleanly when the user copies the suggestion.
+func tooManyArgsError(fs *flag.FlagSet) error {
+	args := fs.Args()
+	first := args[0]
+	if fs.Lookup(first) != nil {
+		return fmt.Errorf("unexpected arguments after %q; did you mean: %s --%s %s", first, appName, first, quoteArgs(args[1:]))
+	}
+	return fmt.Errorf("%s accepts at most one name; got %d: %s", appName, fs.NArg(), quoteArgs(args))
+}
+
+// quoteArgs joins args with spaces, wrapping each with %q so the result
+// round-trips through a shell when any arg contains whitespace or quotes.
+func quoteArgs(args []string) string {
+	parts := make([]string, len(args))
+	for i, a := range args {
+		parts[i] = fmt.Sprintf("%q", a)
+	}
+	return strings.Join(parts, " ")
 }
 
 // parseFullDomain splits a full domain like "vi.be" or "foo.co.uk" into its
@@ -591,9 +618,9 @@ func cacheFilePath() string {
 }
 
 // runRDAPVerify checks available domains via RDAP and returns corrections.
+// The "Verifying..." banner is printed by the renderer via BeginVerification
+// before this is called, so the in-place progress bar can be cleared cleanly.
 func runRDAPVerify(ctx context.Context, available []dns.Result, cfg config.Config, stderr io.Writer) ([]dns.Result, output.VerifyStats) {
-	fmt.Fprintf(stderr, "Verifying %d available domains via RDAP...\n", len(available))
-
 	bootstrap := fetchRDAPBootstrap(cfg.Refresh, stderr)
 	if bootstrap == nil {
 		fmt.Fprintf(stderr, "Warning: could not load RDAP bootstrap, skipping verification\n")
